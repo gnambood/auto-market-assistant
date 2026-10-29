@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Historical Vehicle Market Intelligence</title>
+<style>body{font:16px system-ui,sans-serif;max-width:850px;margin:2rem auto;padding:0 1rem;color:#182231}p{line-height:1.6}select,input{padding:.7rem;max-width:100%}table{border-collapse:collapse;width:100%;margin-top:1rem}th,td{text-align:left;border-bottom:1px solid #ddd;padding:.6rem}th{background:#f3f5f8}.note{background:#f5f6f7;padding:1rem;border-left:4px solid #64748b}.metrics{display:flex;gap:2rem;flex-wrap:wrap}svg{width:100%;height:200px;border:1px solid #ddd}#status{font-weight:bold}</style>
+<h1>Historical Vehicle Market Intelligence</h1>
+<p>Explore recorded Craigslist asking prices and sampled listing counts, not current vehicle prices or transactions.</p>
+<label>Load locally generated market_intelligence.json: <input type="file" id="file" accept=".json,application/json"></label>
+<p id="status">No dataset loaded.</p><label>Comparable vehicle group <select id="group" disabled></select></label>
+<div id="summary"></div><div id="graphs"></div><div id="table"></div>
+<div class="note">Historical snapshot only. Observed listings are not total market availability. Median price changes can reflect mileage, geography, trim, and seller mix. Forecasting is not supported.</div>
+<script>
+const file=document.getElementById("file"),sel=document.getElementById("group");
+let payload=null;
+const money=x=>"$"+Number(x).toLocaleString("en-US",{maximumFractionDigits:0});
+function chart(rows,key,title,format){
+const values=rows.map(x=>x[key]), max=Math.max(...values),min=Math.min(...values);
+const range=Math.max(1,max-min), points=values.map((v,i)=>`${24+i*750/Math.max(1,values.length-1)},${170-(v-min)/range*135}`).join(" ");
+return "<h3>"+title+"</h3><svg viewBox='0 0 800 200' role='img' aria-label='"+title+"'><polyline fill='none' stroke='#246bb5' stroke-width='3' points='"+points+"'/><text x='20' y='18'>"+format(max)+" max</text><text x='20' y='195'>"+format(min)+" min</text></svg>";
+}
+function render(){
+const g=payload.groups[Number(sel.value)];if(!g)return;
+document.getElementById("summary").textContent=`${g.total_listings} observed listings; ${g.supported_days}/${g.observed_days} days have sufficient data; ${g.first_date} to ${g.last_date}.`;
+document.getElementById("graphs").innerHTML=chart(g.daily,"median_asking_price","Median asking price by observed date",money)+chart(g.daily,"listing_count","Comparable listing count by observed date",String);
+document.getElementById("table").innerHTML="<table><thead><tr><th>Date (UTC)</th><th>Sample listings</th><th>Median ask</th><th>Median odometer (mi)</th></tr></thead><tbody>"+g.daily.map(d=>`<tr><td>${d.date}</td><td>${d.listing_count}</td><td>${money(d.median_asking_price)}</td><td>${Number(d.median_odometer).toLocaleString()}</td></tr>`).join("")+"</tbody></table>";
+}
+file.addEventListener("change",async()=>{try{
+payload=JSON.parse(await file.files[0].text());
+if(!Array.isArray(payload.groups)||!payload.metadata||!payload.metadata.source)throw Error("Unexpected JSON structure");
+sel.replaceChildren();payload.groups.forEach((g,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`${g.manufacturer} ${g.model_family} (${g.vehicle_year}) · ${g.total_listings} listings`;sel.append(o)});
+sel.disabled=!payload.groups.length;
+document.getElementById("status").textContent=`${payload.groups.length} supported vehicle groups · dataset ${payload.metadata.earliest_date} to ${payload.metadata.latest_date} · ${payload.metadata.duplicate_ids} duplicate IDs · ${payload.metadata.missing_dates} missing dates`;
+render();
+}catch(e){document.getElementById("status").textContent="Unable to load output: "+e.message;}});
+sel.addEventListener("change",render);
+</script></html>
