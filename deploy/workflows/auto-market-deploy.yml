@@ -1,0 +1,138 @@
+# Reference deployment workflow only; intentionally inactive until AWS OIDC trust, repo variables and path settings are migrated.
+name: Auto Market Assistant Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'projects/auto-market-assistant/api/**'
+      - 'projects/auto-market-assistant/Dockerfile'
+      - '.github/workflows/auto-market-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: ${{ vars.AWS_ROLE_ARN != '' && vars.ECR_REPOSITORY != '' && vars.ECS_EXPRESS_SERVICE_ARN != '' && vars.ARTIFACT_BUCKET != '' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/auto-market-assistant
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run vehicle context regression tests
+        run: python -m unittest discover -s tests -p 'test_vehicle_context.py' -v
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          IMAGE_URI="$REGISTRY/$REPOSITORY:${GITHUB_SHA}"
+          docker build -t "$IMAGE_URI" -t "$REGISTRY/$REPOSITORY:latest" .
+          docker push "$IMAGE_URI"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Deploy ECS Express Mode revision
+        env:
+          SERVICE_ARN: ${{ vars.ECS_EXPRESS_SERVICE_ARN }}
+          ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET }}
+        run: |
+          cat > /tmp/primary-container.json <<JSON
+          {
+            "image": "$IMAGE_URI",
+            "containerPort": 8080,
+            "environment": [
+              {"name":"ARTIFACT_BUCKET","value":"$ARTIFACT_BUCKET"},
+              {"name":"ARTIFACT_PREFIX","value":""},
+              {"name":"ENABLE_GENERATION","value":"false"},
+              {"name":"ALLOWED_ORIGINS","value":"https://gnambood.github.io"}
+            ]
+          }
+          JSON
+
+          aws ecs update-express-gateway-service \
+            --service-arn "$SERVICE_ARN" \
+            --primary-container file:///tmp/primary-container.json \
+            --region "${{ vars.AWS_REGION }}" \
+            --no-cli-pager
+
+      - name: Wait for active revision and smoke test
+        env:
+          SERVICE_ARN: ${{ vars.ECS_EXPRESS_SERVICE_ARN }}
+        run: |
+          set -euo pipefail
+
+          READY=0
+          ENDPOINT=""
+
+          for attempt in $(seq 1 36); do
+            SERVICE_JSON="$(aws ecs describe-express-gateway-service \
+              --service-arn "$SERVICE_ARN" \
+              --region "${{ vars.AWS_REGION }}" \
+              --output json \
+              --no-cli-pager)"
+
+            STATUS="$(echo "$SERVICE_JSON" | jq -r '.service.status.statusCode // "unknown"')"
+            ACTIVE_IMAGE="$(echo "$SERVICE_JSON" | jq -r '.service.activeConfigurations[0].primaryContainer.image // ""')"
+            ENDPOINT="$(echo "$SERVICE_JSON" | jq -r '.service.activeConfigurations[0].ingressPaths[0].endpoint // ""')"
+
+            echo "Attempt $attempt: status=$STATUS image=$ACTIVE_IMAGE endpoint=$ENDPOINT"
+
+            if [[ "$ACTIVE_IMAGE" == *"$GITHUB_SHA"* && -n "$ENDPOINT" ]]; then
+              if [[ "$ENDPOINT" == http://* || "$ENDPOINT" == https://* ]]; then
+                ENDPOINT_URL="${ENDPOINT%/}"
+              else
+                ENDPOINT_URL="https://${ENDPOINT%/}"
+              fi
+
+              if curl -fsS --max-time 20 "$ENDPOINT_URL/health" | tee /tmp/health.json; then
+                READY=1
+                break
+              fi
+            fi
+
+            sleep 10
+          done
+
+          if [[ "$READY" -ne 1 ]]; then
+            echo "New ECS revision did not become active and healthy in time."
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          with open("/tmp/health.json") as f:
+              body = json.load(f)
+          assert body["status"] == "ok", body
+          policy = body.get("answerability_policy", {})
+          expected = {
+              "max_threshold": 0.38,
+              "mean_top3_threshold": 0.36,
+              "support_threshold": 0.34,
+              "min_support_sources": 2,
+          }
+          assert policy == expected, (policy, expected)
+          print("Health smoke test passed with calibrated answerability policy.")
+          PY
+
+          aws ecs describe-express-gateway-service \
+            --service-arn "$SERVICE_ARN" \
+            --region "${{ vars.AWS_REGION }}" \
+            --query 'service.{Status:status.statusCode,Endpoint:activeConfigurations[0].ingressPaths[0].endpoint,Image:activeConfigurations[0].primaryContainer.image}' \
+            --output table \
+            --no-cli-pager
