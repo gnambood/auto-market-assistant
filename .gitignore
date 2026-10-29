@@ -6,3 +6,6 @@
 __pycache__/
 .ipynb_checkpoints/
 data-platform-output/
+
+# Local historical trend exports
+market-intelligence-output/
