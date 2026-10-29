@@ -175,3 +175,11 @@ The next research-oriented improvements would be:
 - evaluate whether a managed or larger production generator improves synthesis enough to justify additional latency and infrastructure cost.
 
 These are intentionally left as future work because the current portfolio goal is an end-to-end, production-oriented ML system rather than a RAG research benchmark.
+
+## Vehicle Market Intelligence (feature branch)
+
+The proposed **historical market trends** feature analyzes the existing curated Craigslist Parquet snapshot for comparable make, normalized model family and vehicle model year. It reports observed daily listing counts, daily median **asking** prices, median mileage, observation coverage and source Parquet SHA-256 lineage. Thin daily groups are suppressed rather than extrapolated.
+
+Because the available posting dates cover only roughly April–May 2021, **forecasting is deliberately not offered**. No changes have been made to CatBoost predictions, RAG inference or AWS infrastructure.
+
+Run `python -m market_intelligence.trends --curated-path data-platform-output/curated/vehicles --output-dir market-intelligence-output`, then open `market_intelligence/viewer.html` and load the generated JSON. See [MARKET_INTELLIGENCE.md](MARKET_INTELLIGENCE.md) for assumptions, validation and limitations.
