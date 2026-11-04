@@ -1,39 +1,40 @@
 # Auto Market Assistant
 
-End-to-end used-car intelligence system combining a reusable batch data pipeline, CatBoost price model, grounded owner-review retrieval, FastAPI inference, Docker, analytics, and a live AWS deployment.
+A Python project for exploring historical vehicle asking prices and owner-reported experiences. It combines a CatBoost regression model, review retrieval, and a batch data pipeline.
 
-## What it does
+[Portfolio demo](https://gnambood.github.io/auto-market-assistant.html) · [Model card](MODEL_CARD.md) · [Architecture](ARCHITECTURE.md) · [Data pipeline](DATA_PIPELINE.md) · [Deployment notes](DEPLOY_AWS.md)
 
-The system separates two questions that should not be mixed:
+## What I built
 
-- How much is this vehicle worth in the historical listing market?
-- What do owners actually report about the vehicle?
+- **Price estimation:** CatBoost regression trained on 238,959 vehicle listings; tested on a chronological holdout.
+- **Owner-review retrieval:** MiniLM embeddings and FAISS over 70,665 matched reviews, with citation checks and an evidence fallback.
+- **Data pipeline:** Python batch ETL, partitioned Parquet, validation gates, and SHA-256 manifests.
+- **Application:** FastAPI and Docker, with an AWS ECS deployment path and GitHub Actions checks.
+- **Historical analysis:** Descriptive asking-price and listing-volume trends with data-coverage and sample-size safeguards.
 
-Price estimates come from a structured CatBoost model. Owner-experience answers come from retrieved Edmunds reviews with citation validation and a safe evidence fallback.
+## Evaluation at a glance
 
-## Final measured results
+| Component | Result | Evaluation context |
+| --- | --- | --- |
+| Price model | MAE $2,866; R² 0.883 | Chronological holdout on historical listings |
+| Price model | 84.9% within ±$5,000 | Same held-out vehicle listings |
+| Review retrieval | Hit@5 81.67%; MRR@10 0.6256 | Vehicle-identity retrieval benchmark |
+| Answerability | Precision 90.0%; recall 84.38%; F1 87.10% | Held-out, weakly supervised benchmark across unseen vehicle families |
 
-### Price model
-- 238,959 modeling rows
-- chronological holdout
-- test MAE: $2,866
-- test R²: 0.883
-- 84.9% of held-out predictions within ±$5,000
+These metrics describe different tasks and should not be combined into a single system-accuracy claim. Price estimates reflect **2021 Craigslist asking prices**, not completed transactions or current market valuations. The live API uses retrieval-backed answers with generation disabled; Qwen generation was evaluated separately in the notebook.
 
-### Owner-review retrieval and answerability
-- 70,665 matched reviews
-- MiniLM embeddings + FAISS retrieval
-- Hit@5: 81.67%
-- MRR@10: 0.6256
-- median retrieval latency: 17.56 ms
-- p95 retrieval latency: 21.11 ms
-- calibrated multi-signal evidence gate: max similarity 0.38, mean top-3 0.36, support threshold 0.34, minimum 2 supporting sources
-- held-out weakly supervised answerability benchmark: 80.95% accuracy, 90.0% precision, 84.38% recall, 87.10% F1
-- scope-guard regression suite: 100% pass rate
-- Qwen 2.5 1.5B used in the final notebook run with source-alias citation mapping and validation
-- deterministic evidence fallback retained for production safety
+## Reading the repository
 
-The answerability benchmark is intentionally described as a **held-out weakly supervised benchmark across unseen vehicle families**, not as universal “RAG accuracy.”
+| Location | Purpose |
+| --- | --- |
+| `api/` | FastAPI endpoints and inference services |
+| `pipelines/` | Batch processing and data-quality checks |
+| `tests/` | API and pipeline regression tests |
+| `infra/`, `deploy/` | Reference infrastructure and deployment assets |
+| `sql/` | Athena validation queries |
+| `metrics/`, `reproducibility/` | Evaluation records and supporting evidence |
+
+The data platform, serving architecture, and deployment setup are documented separately so the main README stays readable.
 
 ## Live production deployment
 
