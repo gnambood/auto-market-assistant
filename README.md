@@ -23,6 +23,14 @@ A Python project for exploring historical vehicle asking prices and owner-report
 
 These metrics describe different tasks and should not be combined into a single system-accuracy claim. Price estimates reflect **2021 Craigslist asking prices**, not completed transactions or current market valuations. The live API uses retrieval-backed answers with generation disabled; Qwen generation was evaluated separately in the notebook.
 
+## Research experiments and current scope
+
+The project continued to evolve **after the first working price-and-reviews demo** through separate evaluation tracks: baseline versus selected CatBoost, retrieval ranking, answerability and abstention, data reconstruction, and descriptive market intelligence. These are research **workstreams**, not a claim that their experiments ran concurrently. Reported historical metrics, new fixture-based tests and still-proposed experiments are labeled separately in [the experiment ledger](research/EXPERIMENTS.md).
+
+The maintained [market-trends module](pipelines/market_trends.py) now computes monthly historical asking-price summaries and observed daily listing counts by make, model family and vehicle year. It includes duplicate/date checks and minimum-sample safeguards. **Real-dataset trend validation is still pending**; results are not current market valuations or forecasts.
+
+For a reversible, low-cost serving plan see [AWS pause and cost checklist](operations/AWS_PAUSE_PLAN.md). No AWS resource has been paused or deleted by this research branch.
+
 ## Reading the repository
 
 | Location | Purpose |
