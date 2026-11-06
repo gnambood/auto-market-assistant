@@ -31,6 +31,12 @@ The maintained [market-trends module](pipelines/market_trends.py) now computes m
 
 For a reversible, low-cost serving plan see [AWS pause and cost checklist](operations/AWS_PAUSE_PLAN.md). No AWS resource has been paused or deleted by this research branch.
 
+## Running research experiments offline
+
+New standalone experiments use pinned Python 3.11 dependencies from `requirements-research.txt`. [Research commands](research/README.md) cover a strictly chronological median-price baseline and feature-contribution analysis on a saved CatBoost model. These are **new, locally testable methods**, not fabricated reproductions of historical training runs. The raw data, exact original train/test split and model artifacts are required to replicate the published CatBoost results.
+
+The API is kept in small modules (`runtime`, `price_engine`, `review_engine`, and a stable `services` facade). The updated RAG policy never borrows reviews from another model when evidence is sparse. [Reproducibility limitations](research/EXPERIMENTS.md) and the [AWS pause plan](operations/AWS_PAUSE_PLAN.md) remain explicit.
+
 ## Reading the repository
 
 | Location | Purpose |
