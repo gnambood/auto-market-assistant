@@ -99,7 +99,7 @@ def write_viewer(daily, destination):
     records = daily.loc[daily["eligible"], GROUP + [
         "date", "listing_count", "median_asking_price"
     ]].copy()
-    records["median_asking_price"] = records["median_asking_price"].where(
+    records["median_asking_price"] = records["median_asking_price"].astype(object).where(
         records["median_asking_price"].notna(), None
     )
     payload = json.dumps(records.to_dict(orient="records"), allow_nan=False)
