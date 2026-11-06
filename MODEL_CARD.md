@@ -39,7 +39,7 @@ The final notebook uses short source aliases for Qwen, maps them back to real re
 - Retrieval Hit@k/MRR metrics measure vehicle-identity retrieval behavior, not universal answer quality.
 - Answerability metrics are from a weakly supervised held-out benchmark across unseen vehicle families and are not a universal RAG score.
 - Owner reviews are anecdotal and may disagree.
-- The deployed AWS ECS API currently runs in retrieval-only fallback mode with ENABLE_GENERATION=false.
+- The last active AWS ECS API revision ran with `ENABLE_GENERATION=false`. ECS task compute was paused on 2026-11-06; live cloud inference is currently unavailable until restored.
 - The live service is intended as a portfolio deployment, not a continuously available commercial SLA.
 
 ## Research interpretability and reproducibility
