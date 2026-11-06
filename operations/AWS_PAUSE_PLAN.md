@@ -1,6 +1,38 @@
 # AWS cost reduction: reversible pause plan
 
-**Status: NOT EXECUTED.** The reviewed source records one ECS Express Mode/Fargate service with 1 vCPU, 4 GiB RAM, minimum/maximum 1 running task; private S3 artifacts, ECR images, managed HTTPS ingress, and CloudWatch are additional possible costs. The user's connected AWS resource inventory and current bill **have not been verified**. No live AWS changes should be made until the full application and static fallback are tested.
+**Status: COMPUTE PAUSED AND VERIFIED, 2026-11-06.** The reviewed source records one ECS Express Mode/Fargate service with 1 vCPU, 4 GiB RAM, minimum/maximum 1 running task; private S3 artifacts, ECR images, managed HTTPS ingress, and CloudWatch are additional possible costs. The user's connected AWS resource inventory and current bill **have not been verified**. The GitHub test suite passed and the portfolio source was inspected for a precomputed fallback. Full model retraining and interactive browser testing are still outstanding; do not claim they have passed.
+
+## Verified current cloud state (2026-11-06)
+
+The connected AWS account's **ca-central-1** ECS service `default/auto-market-assistant` was paused non-destructively. Immediately after the change:
+
+- `desiredCount = 0`, `runningCount = 0`, `pendingCount = 0`.
+- Application Auto Scaling `MinCapacity = 0`, `MaxCapacity = 0`.
+- ECS service remains **ACTIVE** (configured, not serving traffic).
+- The project S3 bucket is versioned; the ECR repository retains its images and the standalone Glue/Athena CloudFormation stack was not changed.
+- The Express-managed Application Load Balancer is **still active** and can incur hourly charges, alongside S3/ECR/CloudWatch and other storage/network services.
+- GitHub Pages embeds a precomputed Ford F-150 example, but its existing JavaScript still initially attempts the unavailable API and may delay before falling back.
+
+No buckets, registries, data catalogs, models, or load balancers were deleted. This is a **Fargate compute pause, not an AWS billing shutdown**.
+
+### How to restore the prior capacity
+
+First check that the ECR image and S3 artifacts still exist. In `ca-central-1` restore the scalable target and ECS desired count:
+
+```bash
+aws application-autoscaling register-scalable-target \
+  --service-namespace ecs \
+  --resource-id service/default/auto-market-assistant \
+  --scalable-dimension ecs:service:DesiredCount \
+  --min-capacity 1 --max-capacity 1
+
+aws ecs update-service \
+  --cluster default \
+  --service auto-market-assistant \
+  --desired-count 1
+```
+
+Wait for `runningCount=1`, confirm the correct historical image and `/health` and `/catalog` endpoints, and perform one end-to-end price/review smoke test. Scaling task count alone does not guarantee the live API is ready.
 
 ## Lowest-cost viable portfolio configuration
 
