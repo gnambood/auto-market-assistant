@@ -3,6 +3,7 @@ import hashlib
 import json
 import platform
 from datetime import datetime, timezone
+from importlib.metadata import version
 from pathlib import Path
 
 import pandas as pd
@@ -44,9 +45,12 @@ def run_pipeline(
 
     review_files = sorted(reviews_dir.rglob("*.csv"))
     source_hash = combined_fingerprint([vehicles_csv, *review_files])
+    modules = (
+        "common.py", "io.py", "quality.py", "run_pipeline.py",
+        "transform_reviews.py", "transform_vehicles.py",
+    )
     code_hashes = {
-        path.name: file_sha256(path)
-        for path in sorted(Path(__file__).parent.glob("*.py"))
+        name: file_sha256(Path(__file__).parent / name) for name in modules
     }
     run_config = {"top_n": top_n}
     identity = {"source": source_hash, "code": code_hashes, "config": run_config}
@@ -125,6 +129,7 @@ def run_pipeline(
             "config": run_config,
             "python": platform.python_version(),
             "pandas": pd.__version__,
+            "pyarrow": version("pyarrow"),
         },
         "source": {
             "vehicles_csv": str(vehicles_csv),
@@ -143,6 +148,13 @@ def run_pipeline(
             "review_matched": int(len(matched_reviews)),
         },
         "top_makes": top_makes,
+        "curated_partition_sha256": [
+            {
+                "path": path.relative_to(output_dir).as_posix(),
+                "sha256": file_sha256(path),
+            }
+            for path in sorted(curated_root.rglob("*.parquet"))
+        ],
         "quality_gate": quality_gate,
         "outputs": {
             "vehicles": "curated/vehicles/",
