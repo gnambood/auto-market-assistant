@@ -1,3 +1,4 @@
+import logging
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,8 @@ from .services import (
     load_public_metrics,
     load_vehicle_catalog,
 )
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Auto Market Assistant API",
@@ -48,25 +51,31 @@ def metrics():
     try:
         return load_public_metrics()
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.exception("metrics failed")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable") from exc
 
 @app.get("/catalog")
 def catalog():
     try:
         return load_vehicle_catalog()
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.exception("catalog failed")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable") from exc
 
 @app.post("/predict-price", response_model=PriceResponse)
 def predict_price(payload: PriceRequest):
     try:
         return get_price_engine().predict(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.exception("price inference failed")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable") from exc
 
 @app.post("/ask", response_model=AskResponse)
 def ask(payload: AskRequest):
     try:
         return get_rag_engine().ask(payload)
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.exception("review retrieval failed")
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable") from exc
