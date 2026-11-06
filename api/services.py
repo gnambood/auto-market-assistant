@@ -4,7 +4,6 @@ Existing callers can continue importing PriceEngine and RagEngine here.
 """
 
 import json
-import re
 from functools import lru_cache
 
 from .runtime import ENABLE_GENERATION, ensure_artifacts, load_answerability_policy, normalize_model
