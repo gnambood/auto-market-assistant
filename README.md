@@ -37,9 +37,11 @@ These metrics describe different tasks and should not be combined into a single 
 
 The data platform, serving architecture, and deployment setup are documented separately so the main README stays readable.
 
-## Live production deployment
+## AWS deployment (compute paused)
 
-The current deployment uses:
+**Operational note (2026-11-06):** Project records report ECS/Fargate compute paused to control AWS cost. The preserved deployment architecture and artifacts are described below, but the public HTTPS API should not be described as currently serving live inference. The portfolio uses a clearly labelled saved example while compute remains paused.
+
+The deployed architecture uses:
 
 - GitHub Pages for the portfolio UI
 - FastAPI for inference endpoints
@@ -142,7 +144,7 @@ artifacts/
 
 ## Website behavior
 
-The portfolio tries the live AWS API first. If the cloud request is unavailable or times out, it falls back to verified static output, so the demo remains usable even when compute is offline.
+The portfolio intentionally uses a verified offline example while ECS compute is paused. A separate browser smoke test guards against unexpected ECS requests. The FastAPI code and deployment workflow are retained for a controlled return to serving.
 
 ## Reproducing the portfolio data
 
