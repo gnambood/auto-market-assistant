@@ -2,11 +2,11 @@
 
 This document describes the **actual production deployment** of Auto Market Assistant and clearly separates it from optional/reference infrastructure that also exists in the repository.
 
-## Production status
+## Deployment status
 
-The application is deployed in **AWS ca-central-1** as a Dockerized FastAPI service on **Amazon ECS Express Mode / AWS Fargate**.
+The application was deployed in **AWS ca-central-1** as a Dockerized FastAPI service on **Amazon ECS Express Mode / AWS Fargate**. **Operational note (2026-11-06):** project records state that ECS task compute is paused to control cost; the public endpoint is not currently serving live inference. S3, ECR and related infrastructure may still incur charges. Restore and verify compute before describing the API as live.
 
-Live API:
+Historical API endpoint (currently paused):
 
 ```text
 https://au-31cea16fe69c481c8dd923a37b6252df.ecs.ca-central-1.on.aws

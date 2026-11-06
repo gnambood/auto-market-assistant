@@ -23,8 +23,8 @@ It is a portfolio/research system, not a current appraisal or transaction-price 
 - Index: FAISS IndexFlatIP over normalized embeddings
 - Vehicle Hit@5: 81.67%
 - MRR@10: 0.6256
-- Median retrieval latency: 17.56 ms
-- p95 retrieval latency: 21.11 ms
+- Median retrieval latency: 19.59 ms
+- p95 retrieval latency: 21.35 ms
 - Answerability policy: max 0.38, mean top-3 0.36, support 0.34, minimum 2 supporting sources
 - Held-out weakly supervised answerability: 80.95% accuracy, 90.0% precision, 84.38% recall, 87.10% F1
 - Scope-guard regression suite: 100% pass rate
