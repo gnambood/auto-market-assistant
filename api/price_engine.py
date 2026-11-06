@@ -4,6 +4,7 @@ import json
 
 from .runtime import ensure_artifacts, normalize_model
 
+
 class PriceEngine:
     def __init__(self):
         import pandas as pd
@@ -63,12 +64,15 @@ class PriceEngine:
 
     def predict(self, payload):
         X, family, age = self._row(payload)
+        make = payload.manufacturer.lower().strip()
+        same = self.vehicles["manufacturer"].eq(make) & self.vehicles["model_family"].eq(family)
+        if not same.any():
+            raise ValueError("No historical listings exist for the selected make and model family.")
+
         prediction = float(self.model.predict(X)[0])
         if self.use_bias:
             prediction += self.bias
 
-        make = payload.manufacturer.lower().strip()
-        same = self.vehicles["manufacturer"].eq(make) & self.vehicles["model_family"].eq(family)
         window = max(25000.0, float(payload.mileage) * 0.30)
         narrow = self.vehicles[
             same
