@@ -2,7 +2,7 @@
 
 A Python project for exploring historical vehicle asking prices and owner-reported experiences. It combines a CatBoost regression model, review retrieval, and a batch data pipeline.
 
-[Portfolio demo](https://gnambood.github.io/auto-market-assistant.html) · [Model card](MODEL_CARD.md) · [Architecture](ARCHITECTURE.md) · [Data pipeline](DATA_PIPELINE.md) · [Deployment notes](DEPLOY_AWS.md)
+[Portfolio demo](https://gnambood.github.io/auto-market-assistant.html) · [Model card](MODEL_CARD.md) · [Architecture](ARCHITECTURE.md) · [Data pipeline](DATA_PIPELINE.md) · [Market trends](MARKET_TRENDS.md) · [Deployment notes](DEPLOY_AWS.md)
 
 ## What I built
 
@@ -10,7 +10,7 @@ A Python project for exploring historical vehicle asking prices and owner-report
 - **Owner-review retrieval:** MiniLM embeddings and FAISS over 70,665 matched reviews, with citation checks and an evidence fallback.
 - **Data pipeline:** Python batch ETL, partitioned Parquet, validation gates, and SHA-256 manifests.
 - **Application:** FastAPI and Docker, with an AWS ECS deployment path and GitHub Actions checks.
-- **Historical analysis:** Descriptive asking-price and listing-volume trends with data-coverage and sample-size safeguards.
+- **Historical analysis:** Descriptive asking-price and daily posting-volume charts by make/model family/year, with sample-size and data-quality safeguards. Run `python -m pipelines.market_trends --input data-platform-output/curated/vehicles --output-dir market-trends-output` to produce CSV diagnostics and an offline HTML viewer (see [Market trends](MARKET_TRENDS.md)).
 
 ## Evaluation at a glance
 
@@ -33,6 +33,7 @@ These metrics describe different tasks and should not be combined into a single 
 | `infra/`, `deploy/` | Reference infrastructure and deployment assets |
 | `sql/` | Athena validation queries |
 | `metrics/`, `reproducibility/` | Evaluation records and supporting evidence |
+| `pipelines/market_trends.py` | Historical price and listing-volume analytics; offline charts |
 
 The data platform, serving architecture, and deployment setup are documented separately so the main README stays readable.
 
@@ -176,3 +177,7 @@ The next research-oriented improvements would be:
 - evaluate whether a managed or larger production generator improves synthesis enough to justify additional latency and infrastructure cost.
 
 These are intentionally left as future work because the current portfolio goal is an end-to-end, production-oriented ML system rather than a RAG research benchmark.
+
+## Repository ownership
+
+This is the **canonical technical source** for the Auto Market Assistant model, API, ETL, historical trend viewer, tests and architecture/deployment documentation. The GitHub Pages repository is a presentation/demo layer. Its prior duplicate `projects/auto-market-assistant/` copy is retired through a separate deployment-aware migration; the GitHub Pages release workflow must check out the canonical project source before removing that copy. Any AWS execution or automatic deployment remains controlled by GitHub Actions configuration and should not be inferred from documentation alone.
