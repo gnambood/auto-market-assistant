@@ -5,6 +5,18 @@ import json
 from .runtime import ensure_artifacts, normalize_model
 
 
+def resolve_features(metrics, model):
+    """Use the trained model's exact feature order, never an inferred order."""
+    saved = metrics.get("selected_features")
+    trained = list(getattr(model, "feature_names_", []))
+    if saved and trained and list(saved) != trained:
+        raise ValueError("Metrics feature list differs from the trained CatBoost model")
+    features = list(saved or trained)
+    if not features:
+        raise ValueError("No feature names found in the metrics or saved model")
+    return features
+
+
 class PriceEngine:
     def __init__(self):
         import pandas as pd
@@ -25,7 +37,7 @@ class PriceEngine:
             self.metrics = json.load(f)
         self.model = CatBoostRegressor()
         self.model.load_model(paths["price_model.cbm"])
-        self.features = self.metrics["selected_features"]
+        self.features = resolve_features(self.metrics, self.model)
         self.use_bias = bool(self.metrics.get("bias_correction_used", False))
         self.bias = float(self.metrics.get("bias_correction", 0.0))
         self.market_year = int(self.vehicles["posting_year"].mode().iloc[0]) if "posting_year" in self.vehicles.columns else 2021
@@ -63,6 +75,8 @@ class PriceEngine:
         return self.pd.DataFrame([row])[self.features], family, age
 
     def predict(self, payload):
+        if payload.year > self.market_year + 1:
+            raise ValueError("Vehicle model year is outside the historical market snapshot")
         X, family, age = self._row(payload)
         make = payload.manufacturer.lower().strip()
         same = self.vehicles["manufacturer"].eq(make) & self.vehicles["model_family"].eq(family)
