@@ -31,7 +31,7 @@ def test_deduplicates_and_reports_missing_dates():
     assert stats["duplicate_listing_ids_removed"] == 1
     assert stats["missing_or_invalid_posting_dates"] == 1
     assert stats["eligible_groups"] == 1
-    assert coverage.loc[coverage["manufacturer"] == "honda", "eligible"].iloc[0] == False
+    assert not bool(coverage.loc[coverage["manufacturer"] == "honda", "eligible"].iloc[0])
 
 
 def test_sparse_daily_prices_suppressed_but_counts_retained():
