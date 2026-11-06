@@ -23,8 +23,8 @@ It is a portfolio/research system, not a current appraisal or transaction-price 
 - Index: FAISS IndexFlatIP over normalized embeddings
 - Vehicle Hit@5: 81.67%
 - MRR@10: 0.6256
-- Median retrieval latency: 17.56 ms
-- p95 retrieval latency: 21.11 ms
+- Median retrieval latency: 19.59 ms
+- p95 retrieval latency: 21.35 ms
 - Answerability policy: max 0.38, mean top-3 0.36, support 0.34, minimum 2 supporting sources
 - Held-out weakly supervised answerability: 80.95% accuracy, 90.0% precision, 84.38% recall, 87.10% F1
 - Scope-guard regression suite: 100% pass rate
@@ -41,3 +41,9 @@ The final notebook uses short source aliases for Qwen, maps them back to real re
 - Owner reviews are anecdotal and may disagree.
 - The deployed AWS ECS API currently runs in retrieval-only fallback mode with ENABLE_GENERATION=false.
 - The live service is intended as a portfolio deployment, not a continuously available commercial SLA.
+
+## Research interpretability and reproducibility
+
+The reported metrics are from saved experiment records; the final CatBoost and FAISS training source is not fully recoverable from this repository alone. The new [chronological median baseline](research/price_baseline.py) is an independently runnable comparison but does not recreate the historical CatBoost V0 split. The [CatBoost SHAP report](research/explain_price.py) requires a saved model and the original **feature-ready** evaluation rows. Feature contributions describe model behavior, not causal determinants of asking price. See [the experiment ledger](research/EXPERIMENTS.md) for reported, reproduced and pending evidence.
+
+The retrieval timings shown above follow the committed `rag_metrics.json` artifact; hardware/run context is not fully documented, so they are not guaranteed production latency.
