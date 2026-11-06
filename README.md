@@ -2,7 +2,7 @@
 
 A Python project for exploring historical vehicle asking prices and owner-reported experiences. It combines a CatBoost regression model, review retrieval, and a batch data pipeline.
 
-[Portfolio demo](https://gnambood.github.io/auto-market-assistant.html) · [Model card](MODEL_CARD.md) · [Architecture](ARCHITECTURE.md) · [Data pipeline](DATA_PIPELINE.md) · [Market trends](MARKET_TRENDS.md) · [Deployment notes](DEPLOY_AWS.md)
+[Portfolio demo](https://gnambood.github.io/auto-market-assistant.html) · [Model card](MODEL_CARD.md) · [Architecture](ARCHITECTURE.md) · [Data pipeline](DATA_PIPELINE.md) · [Market trends](MARKET_INTELLIGENCE.md) · [Deployment notes](DEPLOY_AWS.md)
 
 ## What I built
 
@@ -10,7 +10,7 @@ A Python project for exploring historical vehicle asking prices and owner-report
 - **Owner-review retrieval:** MiniLM embeddings and FAISS over 70,665 matched reviews, with citation checks and an evidence fallback.
 - **Data pipeline:** Python batch ETL, partitioned Parquet, validation gates, and SHA-256 manifests.
 - **Application:** FastAPI and Docker, with an AWS ECS deployment path and GitHub Actions checks.
-- **Historical analysis:** Descriptive asking-price and daily posting-volume charts by make/model family/year, with sample-size and data-quality safeguards. Run `python -m pipelines.market_trends --input data-platform-output/curated/vehicles --output-dir market-trends-output` to produce CSV diagnostics and an offline HTML viewer (see [Market trends](MARKET_TRENDS.md)).
+- **Historical analysis:** Descriptive asking-price and daily posting-volume charts by make/model family/year, with sample-size and data-quality safeguards. Run `python -m market_intelligence.trends --curated-path data-platform-output/curated/vehicles --output-dir market-intelligence-output` and open `market_intelligence/viewer.html` to load the generated JSON. See [Market intelligence](MARKET_INTELLIGENCE.md) for sample gates, SHA-256 lineage and limitations.
 
 ## Evaluation at a glance
 
@@ -33,7 +33,7 @@ These metrics describe different tasks and should not be combined into a single 
 | `infra/`, `deploy/` | Reference infrastructure and deployment assets |
 | `sql/` | Athena validation queries |
 | `metrics/`, `reproducibility/` | Evaluation records and supporting evidence |
-| `pipelines/market_trends.py` | Historical price and listing-volume analytics; offline charts |
+| `market_intelligence/` | Historical asking-price and daily listing-volume analytics with JSON output and offline chart viewer |
 
 The data platform, serving architecture, and deployment setup are documented separately so the main README stays readable.
 
