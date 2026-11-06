@@ -1,178 +1,134 @@
 # Auto Market Assistant
 
-A Python project for exploring historical vehicle asking prices and owner-reported experiences. It combines a CatBoost regression model, review retrieval, and a batch data pipeline.
+**An end-to-end used-vehicle ML application:** historical asking-price estimates, evidence-backed owner reviews, and a validated data pipeline behind a FastAPI service.
 
-[Portfolio demo](https://gnambood.github.io/auto-market-assistant.html) · [Model card](MODEL_CARD.md) · [Architecture](ARCHITECTURE.md) · [Data pipeline](DATA_PIPELINE.md) · [Deployment notes](DEPLOY_AWS.md)
+[**View the portfolio demo**](https://gnambood.github.io/auto-market-assistant.html) · [System architecture](ARCHITECTURE.md) · [Model card](MODEL_CARD.md) · [Data pipeline](DATA_PIPELINE.md)
 
-## What I built
+> **Demo status (November 2026):** The public portfolio includes a precomputed, verified Ford F-150 example. AWS inference is temporarily paused to avoid continuous Fargate charges. The application code, trained artifacts and documented deployment are retained; the demo is **not** presenting new live predictions while the service is paused.
 
-- **Price estimation:** CatBoost regression trained on 238,959 vehicle listings; tested on a chronological holdout.
-- **Owner-review retrieval:** MiniLM embeddings and FAISS over 70,665 matched reviews, with citation checks and an evidence fallback.
-- **Data pipeline:** Python batch ETL, partitioned Parquet, validation gates, and SHA-256 manifests.
-- **Application:** FastAPI and Docker, with an AWS ECS deployment path and GitHub Actions checks.
-- **Historical analysis:** Descriptive asking-price and listing-volume trends with data-coverage and sample-size safeguards.
+## What it does
 
-## Evaluation at a glance
+A car's listing price and its owners' experiences answer different questions. Auto Market Assistant keeps them separate:
 
-| Component | Result | Evaluation context |
+1. **Historical asking-price estimate** — CatBoost predicts an asking price from the vehicle's make, model, year, mileage and available condition details. The response also includes comparable-listing statistics and their support count.
+2. **Evidence-backed owner reviews** — MiniLM embeddings and FAISS retrieve Edmunds reviews for the selected model family. An answerability policy filters weak evidence and returns source IDs or an abstention. The CPU-serving API uses retrieval-based responses, without an always-on LLM.
+3. **Market context** — a batch analysis computes historical asking-price summaries and observed listing volumes by make, model family, vehicle year and posting date. This is descriptive analysis, not a forecast or part of CatBoost inference.
+
+The project includes preprocessing, validation, saved models, serving code, a browser-facing demo, tests, Docker and AWS deployment infrastructure.
+
+## System, end to end
+
+```text
+Craigslist listing CSVs          Edmunds owner-review CSVs
+            \                           /
+             `--- Python cleaning + data-quality gates
+                            |
+                  Curated Parquet on S3
+                     /       |        \
+              CatBoost   MiniLM/FAISS  Glue / Athena
+                     \       /          (analytics)
+                      FastAPI + Docker
+                            |
+                     GitHub Pages demo
+                  (saved example while
+                     AWS is paused)
+```
+
+- **`pipelines/`** prepares and validates vehicle and review data, produces manufacturer-partitioned Parquet and tracks data lineage with SHA-256.
+- **`api/`** serves price inference, review retrieval, the vehicle catalog and public model metrics. It enforces input validation, model-family scoping and explicit abstention.
+- **`metrics/`** contains recorded evaluation results; **`tests/`** covers data processing, API behavior, market trends and edge cases.
+- **`sql/`** contains Athena queries. **`infra/`**, **`lambda/`** and **`deploy/`** document cloud components and deployment.
+- **`src/`** contains artifact upload and demo-export scripts; **`reproducibility/`** preserves the independent data-reconstruction record.
+- **`research/`** contains optional offline baselines and explainability tools, separate from the app's serving path.
+
+The GitHub Pages frontend is maintained in [the portfolio repository](https://github.com/gnambood/gnambood.github.io); the Python application and data pipeline live here.
+
+## Measured results
+
+| Component | Recorded result | What it measures |
 | --- | --- | --- |
-| Price model | MAE $2,866; R² 0.883 | Chronological holdout on historical listings |
-| Price model | 84.9% within ±$5,000 | Same held-out vehicle listings |
-| Review retrieval | Hit@5 81.67%; MRR@10 0.6256 | Vehicle-identity retrieval benchmark |
-| Answerability | Precision 90.0%; recall 84.38%; F1 87.10% | Held-out, weakly supervised benchmark across unseen vehicle families |
+| CatBoost | **$2,866 MAE**, **0.883 R²** | Historical asking-price regression on a chronological holdout |
+| CatBoost | **84.86%** | Test examples within ±$5,000 |
+| MiniLM + FAISS | **81.67% Hit@5**, **0.6256 MRR@10** | Vehicle-identity retrieval on 60 evaluation questions |
+| Answerability guard | **87.10% F1**, **90.0% precision** | Held-out *weakly supervised* accept/abstain evaluation |
 
-These metrics describe different tasks and should not be combined into a single system-accuracy claim. Price estimates reflect **2021 Craigslist asking prices**, not completed transactions or current market valuations. The live API uses retrieval-backed answers with generation disabled; Qwen generation was evaluated separately in the notebook.
+These are different evaluations, not one combined accuracy score. The training/evaluation results are preserved as reported artifacts; the exact original training notebooks and split IDs are not bundled in this repository. See [the model card](MODEL_CARD.md) for methodology and limitations.
 
-## Reading the repository
+**Data coverage:** 238,959 curated historical vehicle listings and 70,665 matched owner reviews. The source listings are from the **2021** market; estimated asking prices are **not** current appraisals or completed sale prices.
 
-| Location | Purpose |
+## Run the application locally
+
+You can run the serving stack without AWS once you have the saved artifact bundle.
+
+```bash
+git clone https://github.com/gnambood/auto-market-assistant.git
+cd auto-market-assistant
+
+# Place the exported files under ./artifacts:
+# vehicles_clean.parquet, review_documents.parquet,
+# price_model.cbm, model_improvement_metrics.json,
+# review_index.faiss, rag_metrics.json (optional)
+
+docker build -t auto-market-assistant .
+docker run --rm -p 8080:8080 \
+  -e ARTIFACT_DIR=/app/artifacts \
+  -e ENABLE_GENERATION=false \
+  -v "$PWD/artifacts:/app/artifacts" \
+  auto-market-assistant
+```
+
+Then visit [http://localhost:8080/docs](http://localhost:8080/docs) for the interactive API documentation or check [http://localhost:8080/health](http://localhost:8080/health).
+
+| Endpoint | Purpose |
 | --- | --- |
-| `api/` | FastAPI endpoints and inference services |
-| `pipelines/` | Batch processing and data-quality checks |
-| `tests/` | API and pipeline regression tests |
-| `infra/`, `deploy/` | Reference infrastructure and deployment assets |
-| `sql/` | Athena validation queries |
-| `metrics/`, `reproducibility/` | Evaluation records and supporting evidence |
+| `GET /health` | API status and answerability policy |
+| `GET /catalog` | Supported makes, models and inputs |
+| `POST /predict-price` | Historical price and comparable statistics |
+| `POST /ask` | Retrieved review evidence or explicit abstention |
+| `GET /metrics` | Saved model/retrieval evaluation metadata |
 
-The data platform, serving architecture, and deployment setup are documented separately so the main README stays readable.
+The large model, review index and datasets are intentionally not committed to Git. See [deployment notes](DEPLOY_AWS.md) for S3 paths and artifact setup. Without the artifacts, model-dependent endpoints cannot run.
 
-## Live production deployment
+## Build the curated datasets
 
-The current deployment uses:
+With the original source CSVs available:
 
-- GitHub Pages for the portfolio UI
-- FastAPI for inference endpoints
-- Docker for the application image
-- Amazon ECR for private image storage and scan-on-push
-- Amazon ECS Express Mode / Fargate for serving
-- an AWS-managed HTTPS ingress/load-balancing layer
-- Amazon S3 for model, FAISS, metrics and processed-data artifacts
-- private/versioned S3 storage with public-access blocking
-- IAM task, execution and infrastructure roles
-- GitHub Actions OIDC federation to AWS instead of long-lived deployment keys
-- deployment smoke tests that verify the active ECS image and calibrated RAG policy
-
-For the full AWS resource inventory, security model, CI/CD flow, runtime configuration and production/reference-infrastructure distinction, see **[DEPLOY_AWS.md](DEPLOY_AWS.md)**, **[ARCHITECTURE.md](ARCHITECTURE.md)** and **[DATA_PIPELINE.md](DATA_PIPELINE.md)**.
-
-Live API:
-
-`https://au-31cea16fe69c481c8dd923a37b6252df.ecs.ca-central-1.on.aws`
-
-Endpoints:
-- `POST /predict-price`
-- `POST /ask`
-- `GET /health`
-- `GET /metrics`
-
-The cloud service intentionally runs with `ENABLE_GENERATION=false`, so the live `/ask` endpoint returns deterministic retrieval-backed evidence. The final notebook separately validates Qwen generation with short source aliases, citation mapping, and fallback.
-
-The production RAG path is now:
-
-```text
-scope/capability guard
-        ↓
-vehicle-family/year filtering
-        ↓
-question-only MiniLM retrieval
-        ↓
-calibrated multi-signal evidence gate
-        ↓
-grounded evidence response
-        ↓
-citation validation
+```bash
+python -m pip install -r requirements-data.txt
+python -m pipelines.run_pipeline \
+  --vehicles-csv /path/to/vehicles.csv \
+  --reviews-dir /path/to/edmunds-reviews \
+  --output-dir ./data-platform-output
 ```
 
-## Data engineering layer
+The pipeline validates required fields and cleaning gates, writes Parquet/quality reports and produces a manifest containing input hashes, transformation-code hashes, settings and output checksums. [Data pipeline details](DATA_PIPELINE.md).
 
-The validated notebook transformations have been refactored into a reusable batch pipeline under `pipelines/`.
+To execute the included regression suite:
 
-It produces manufacturer-partitioned Parquet datasets, row-level cleaning audits, data-quality reports, quality gates and SHA-256 lineage manifests so CatBoost, RAG and analytics can share one curated definition of the data.
-
-```text
-raw CSV snapshots
-      ↓
-Python batch ETL
-      ↓
-schema + quality gates
-      ↓
-curated Parquet in S3
-      ↓
-├── CatBoost
-├── FAISS / RAG
-└── Glue Data Catalog → Athena → Tableau / QA
+```bash
+python -m pip install -r requirements-research.txt
+python -m pip install fastapi==0.115.6 pydantic==2.10.4 httpx==0.28.1 ruff==0.8.4
+ruff check api pipelines research tests
+python -m pytest -q
 ```
 
-A deployable Glue/Athena catalog stack is defined in `infra/data-catalog-template.yaml`, with reusable Athena queries in `sql/`. The analytics stack was deployed separately on 2026-10-08 as CloudFormation stack `auto-market-data-platform` in `ca-central-1`. Both tables (`vehicles`, `reviews`) passed Athena row-count and content queries. It is not auto-deployed with ECS because Athena/Glue usage can incur AWS charges. Raw-source ingestion and reproducible end-to-end lineage are still pending.
+The latest verified GitHub CI run on the development branch passed **47 tests** and Ruff lint. See [CI](https://github.com/gnambood/auto-market-assistant/actions/workflows/auto-market-ci.yml).
 
-See **[DATA_PIPELINE.md](DATA_PIPELINE.md)** for the ETL rules, S3 layout, lineage model, quality thresholds and catalog setup.
+## Deployment and demo status
 
-## S3 layout
+The application was deployed as a CPU-based FastAPI container using Amazon ECR, ECS Express Mode/Fargate, private S3 model artifacts and GitHub Actions with OIDC. Its separate Glue/Athena layer supports data-quality and summary analytics.
 
-```text
-raw/
-  craigslist/
-  edmunds/
+On **November 6, 2026**, ECS task capacity was set to **zero** (desired 0; autoscaling minimum/maximum 0). The service configuration, S3 artifacts, ECR images and Athena catalog were preserved. The managed load balancer and stored artifacts may still incur charges. The public demo should use its saved, labeled example until cloud inference is deliberately restored.
 
-curated/
-  vehicles/manufacturer=.../
-  reviews/manufacturer=.../
-  vehicle_review_matches/manufacturer=.../
+[Deployment architecture](DEPLOY_AWS.md) · [AWS pause/restore runbook](operations/AWS_PAUSE_PLAN.md)
 
-quality/
-  vehicle_cleaning_audit.csv
-  vehicle_quality.json
-  review_quality.json
-  quality_gate.json
+## Design choices and limits
 
-manifests/
-  pipeline_<source-fingerprint>.json
-  latest.json
+- **Separate price prediction from language generation.** Review text does not change CatBoost's numerical prediction.
+- **Prefer grounded retrieval and abstention.** Too little relevant evidence is a reason to decline an answer, not to substitute another model's reviews.
+- **Batch, not streaming.** These are historical snapshots; Pandas/Parquet are sufficient without Spark or Kafka.
+- **Show evidence and dataset scope.** Comparables, review IDs and dates are part of the response, not hidden implementation details.
+- **Treat model explanations as contributions, not causes.** Optional CatBoost SHAP analysis is available in [`research/`](research/README.md), but it does not prove causal price drivers.
+- **Avoid overclaiming reproducibility.** The recorded raw-to-Parquet reconstruction and current test suite are available; independently reproducing the historical model training requires the original final training notebooks and frozen split definitions.
 
-processed/
-  vehicles_clean.parquet
-  review_documents.parquet
-
-artifacts/
-  price_model.cbm
-  model_improvement_metrics.json
-  review_index.faiss
-  rag_metrics.json
-```
-
-## Website behavior
-
-The portfolio tries the live AWS API first. If the cloud request is unavailable or times out, it falls back to verified static output, so the demo remains usable even when compute is offline.
-
-## Reproducing the portfolio data
-
-1. Run the final Part 1 notebook and save `part1_artifacts.zip`.
-2. Run the final Part 2 notebook using that fresh Part 1 bundle and save `part2_artifacts.zip`.
-3. Upload the six deployment artifacts to the expected S3 paths.
-4. Use `src/build_demo_json_from_artifacts.py` when a larger precomputed fallback set is needed.
-5. Deploy the Docker API through ECR + ECS Express Mode.
-
-## Large artifacts
-
-Large Parquet files, FAISS indexes, embeddings, model binaries and ZIP bundles are intentionally excluded from Git. The live API loads its artifacts from S3.
-
-## Scope and limitations
-
-- Price outputs represent 2021 Craigslist asking-price context.
-- Asking price is not a completed transaction price.
-- Results should not be interpreted as current vehicle valuations.
-- Retrieval Hit@k/MRR metrics evaluate vehicle-identity retrieval behavior, not universal semantic answer quality.
-- The answerability metrics come from a weakly supervised held-out benchmark and should not be treated as a universal RAG score.
-- Owner reviews are anecdotal and may disagree.
-
-## Future work
-
-The next research-oriented improvements would be:
-
-- build a manually labelled gold set of question-review pairs for direct relevance grading,
-- compare MiniLM dense retrieval with cross-encoder reranking on the same labels,
-- test passage/sentence chunking instead of whole-review embeddings,
-- compare newer retrieval embeddings such as BGE or E5 using the same benchmark,
-- add claim-level faithfulness/entailment evaluation for generated answers,
-- evaluate whether a managed or larger production generator improves synthesis enough to justify additional latency and infrastructure cost.
-
-These are intentionally left as future work because the current portfolio goal is an end-to-end, production-oriented ML system rather than a RAG research benchmark.
+The result is a complete **historical ML inference and review-evidence application**, with a reproducible data-processing layer and optional cloud serving. It is not a real-time vehicle market data provider.

@@ -223,3 +223,34 @@ def test_multi_signal_retrieval_gate_rejects_weak_question():
 
     assert result["answerable"] is False
     assert result["reason_code"] == "low_retrieval_relevance"
+
+
+def test_unsupported_price_scope_is_client_error(monkeypatch):
+    import api.main as main_module
+
+    class Unsupported:
+        def predict(self, payload):
+            raise ValueError("No historical listings for this vehicle")
+
+    monkeypatch.setattr(main_module, "get_price_engine", lambda: Unsupported())
+    response = client.post(
+        "/predict-price",
+        json={"manufacturer": "unknown", "model": "unknown", "year": 2004, "mileage": 40000},
+    )
+    assert response.status_code == 422
+    assert "No historical listings" in response.json()["detail"]
+
+
+def test_internal_service_error_does_not_leak_details(monkeypatch):
+    import api.main as main_module
+
+    def broken():
+        raise RuntimeError("internal bucket name and stack trace should stay private")
+
+    monkeypatch.setattr(main_module, "get_rag_engine", broken)
+    response = client.post(
+        "/ask",
+        json={"manufacturer": "ford", "model": "f-150", "question": "What about reliability?"},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Service temporarily unavailable"

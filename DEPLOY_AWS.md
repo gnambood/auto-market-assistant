@@ -1,10 +1,12 @@
 # AWS Architecture & Deployment
 
-This document describes the **actual production deployment** of Auto Market Assistant and clearly separates it from optional/reference infrastructure that also exists in the repository.
+**Current operational status (2026-11-06):** ECS/Fargate task compute is paused (desired 0, running 0, autoscaling 0–0). The HTTPS endpoint is not serving inference. The ALB, versioned S3 artifacts, ECR images and Athena/Glue stack remain and may incur charges. See [the pause and restore plan](operations/AWS_PAUSE_PLAN.md).
+
+This document describes the **historical production deployment** of Auto Market Assistant and clearly separates it from optional/reference infrastructure that also exists in the repository.
 
 ## Production status
 
-The application is deployed in **AWS ca-central-1** as a Dockerized FastAPI service on **Amazon ECS Express Mode / AWS Fargate**.
+The application was deployed in **AWS ca-central-1** as a Dockerized FastAPI service on **Amazon ECS Express Mode / AWS Fargate**.
 
 Live API:
 
@@ -201,11 +203,13 @@ GitHub Actions
 deployment succeeds
 ```
 
-The workflow is:
+The historical active deployment workflow is owned by the separate portfolio repository:
 
 ```text
-.github/workflows/auto-market-deploy.yml
+gnambood/gnambood.github.io/.github/workflows/auto-market-deploy.yml
 ```
+
+The copy under `deploy/workflows/` here is a deliberately inactive reference workflow.
 
 A deployment is not considered successful merely because ECS accepted the update. The workflow waits for the requested image revision to become active and then performs a live HTTPS health check.
 

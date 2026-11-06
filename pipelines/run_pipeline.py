@@ -1,6 +1,9 @@
 import argparse
+import hashlib
 import json
+import platform
 from datetime import datetime, timezone
+from importlib.metadata import version
 from pathlib import Path
 
 import pandas as pd
@@ -41,8 +44,19 @@ def run_pipeline(
     output_dir = Path(output_dir)
 
     review_files = sorted(reviews_dir.rglob("*.csv"))
-    fingerprint = combined_fingerprint([vehicles_csv, *review_files])
-    run_id = fingerprint[:12]
+    source_hash = combined_fingerprint([vehicles_csv, *review_files])
+    modules = (
+        "common.py", "io.py", "quality.py", "run_pipeline.py",
+        "transform_reviews.py", "transform_vehicles.py",
+    )
+    code_hashes = {
+        name: file_sha256(Path(__file__).parent / name) for name in modules
+    }
+    run_config = {"top_n": top_n}
+    identity = {"source": source_hash, "code": code_hashes, "config": run_config}
+    run_id = hashlib.sha256(
+        json.dumps(identity, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:12]
 
     raw_vehicles = pd.read_csv(vehicles_csv, low_memory=False)
     clean_vehicles, cleaning_audit = clean_vehicle_listings(raw_vehicles)
@@ -109,6 +123,14 @@ def run_pipeline(
     manifest = {
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "reproducibility": {
+            "source_fingerprint_sha256": source_hash,
+            "transformation_code_sha256": code_hashes,
+            "config": run_config,
+            "python": platform.python_version(),
+            "pandas": pd.__version__,
+            "pyarrow": version("pyarrow"),
+        },
         "source": {
             "vehicles_csv": str(vehicles_csv),
             "vehicles_sha256": file_sha256(vehicles_csv),
@@ -126,6 +148,13 @@ def run_pipeline(
             "review_matched": int(len(matched_reviews)),
         },
         "top_makes": top_makes,
+        "curated_partition_sha256": [
+            {
+                "path": path.relative_to(output_dir).as_posix(),
+                "sha256": file_sha256(path),
+            }
+            for path in sorted(curated_root.rglob("*.parquet"))
+        ],
         "quality_gate": quality_gate,
         "outputs": {
             "vehicles": "curated/vehicles/",

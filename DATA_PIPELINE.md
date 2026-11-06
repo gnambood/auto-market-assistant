@@ -78,7 +78,7 @@ These are operational drift checks, not model thresholds.
 
 ## Lineage
 
-Every input file is SHA-256 hashed. The combined fingerprint becomes the run ID and is written to a manifest with row counts, selected makes, gate results, output paths, and generation time. That makes it possible to trace a curated dataset back to the exact source snapshot.
+Every input file is SHA-256 hashed. The run ID now combines the source fingerprint, transformation-code hashes and configuration. The manifest also records Python/Pandas/PyArrow versions, curated Parquet output SHA-256 hashes, row counts, selected makes, gate results, output paths and generation time. This distinguishes runs with the same inputs but different preprocessing logic or parameters. That makes it possible to trace a curated dataset back to the exact source snapshot.
 
 ## Run
 

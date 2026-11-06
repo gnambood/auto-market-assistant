@@ -1,5 +1,7 @@
 # Production Architecture
 
+**Operational note (2026-11-06):** The diagram below documents the deployed serving architecture, but the ECS/Fargate service is scaled to **zero tasks** while AWS compute is paused. S3/ECR/Glue/Athena are retained and the existing ALB may still incur cost. See [AWS pause and restoration](operations/AWS_PAUSE_PLAN.md).
+
 ## Request path
 
 ```text
