@@ -35,29 +35,29 @@ class RagEngine:
         self.generator = None
         self.generator_name = None
 
-    def _retrieve(self, payload):
+    @staticmethod
+    def _candidate_scope(docs, payload):
+        """Keep owner evidence tied to the selected model family.
+
+        Sparse evidence can widen the year window but never the model identity.
+        A requested k greater than the available reviews is not a reason to
+        substitute reviews of another model.
+        """
         make = payload.manufacturer.lower().strip()
         family = " ".join(normalize_model(payload.model).split()[:2])
+        family_mask = docs["manufacturer"].eq(make) & docs["model_family"].eq(family)
 
-        make_mask = self.docs["manufacturer"].eq(make)
-        family_mask = make_mask & self.docs["model_family"].eq(family)
-
-        near_year = (
-            family_mask
-            if payload.year is None
-            else family_mask
-            & self.docs["vehicle_year"].between(
-                payload.year - 1,
-                payload.year + 1,
+        if payload.year is not None:
+            near_year = family_mask & docs["vehicle_year"].between(
+                payload.year - 1, payload.year + 1
             )
-        )
+            if near_year.any():
+                return near_year, "same model family, year ±1"
 
-        if payload.year is not None and int(near_year.sum()) >= payload.k:
-            mask, scope = near_year, "same model family, year ±1"
-        elif int(family_mask.sum()) >= payload.k:
-            mask, scope = family_mask, "same model family"
-        else:
-            mask, scope = make_mask, "same manufacturer"
+        return family_mask, "same model family"
+
+    def _retrieve(self, payload):
+        mask, scope = self._candidate_scope(self.docs, payload)
 
         candidate_idx = self.np.flatnonzero(mask.to_numpy())
 
