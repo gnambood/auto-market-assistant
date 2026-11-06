@@ -29,7 +29,7 @@ The project continued to evolve **after the first working price-and-reviews demo
 
 The maintained [market-trends module](pipelines/market_trends.py) now computes monthly historical asking-price summaries and observed daily listing counts by make, model family and vehicle year. It includes duplicate/date checks and minimum-sample safeguards. **Real-dataset trend validation is still pending**; results are not current market valuations or forecasts.
 
-For a reversible, low-cost serving plan see [AWS pause and cost checklist](operations/AWS_PAUSE_PLAN.md). No AWS resource has been paused or deleted by this research branch.
+For a reversible, low-cost serving plan see [AWS pause and cost checklist](operations/AWS_PAUSE_PLAN.md). AWS ECS task compute was paused on 2026-11-06 (desired/running 0, scaling 0–0); S3, ECR, Athena and the load balancer remain. See the pause runbook for restoration.
 
 ## Running research experiments offline
 
