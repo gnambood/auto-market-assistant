@@ -243,3 +243,7 @@ def test_end_to_end_pipeline_is_idempotent(tmp_path):
     assert changed["manifest"]["run_id"] != first["manifest"]["run_id"]
     assert "run_pipeline.py" in first["manifest"]["reproducibility"]["transformation_code_sha256"]
     assert first["manifest"]["reproducibility"]["config"] == {"top_n": 10}
+    assert first["manifest"]["curated_partition_sha256"]
+    assert all(len(entry["sha256"]) == 64 for entry in first["manifest"]["curated_partition_sha256"])
+    assert first["manifest"]["reproducibility"]["pyarrow"]
+
